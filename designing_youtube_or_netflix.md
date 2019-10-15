@@ -170,6 +170,5 @@ Since videos could be huge, if while uploading the connection drops, we should s
 Newly uploaded videos are stored on the server and a new task is queued to the processing queue to encode the video into multiple formats. Once completed, the uploader will be notified and the video is made available for viewing/sharing.
 
 
-```python
-
-```
+![](images/detailed_design_youtube.png)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`Detailed component design of Youtube`
