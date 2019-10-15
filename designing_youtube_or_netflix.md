@@ -107,7 +107,17 @@ Returns: (STREAM)
 A media stream (video chunk) from the given offset.
 
 
+## High Level Design
+At a high-level we would need the following components:
+1. **Processing Queue:**: Each uploaded video will be pushed to a processing queue ot be de-queued later for encoding, thumbnail generation, and storage.
+2. **Encoder:** To encode each uploaded video into multiple formats.
+3. **Thumbnails generator:** To generate thumbnails for each video.
+4. **Video and Thumbnail storage:** To store video and thumbnail files in some distributed file storage.
+5. **User DB:** To store user's info e.g name, email, address, etc.
+6. **Video metadata storage:** A metadata DB to store information about videos like title, its file path, uploading user, total views, likes, comments etc. 
 
-```python
+![](images/hld_youtube.png)
 
-```
+## Database Schema
+
+#### Video metadata storage - MySQL
