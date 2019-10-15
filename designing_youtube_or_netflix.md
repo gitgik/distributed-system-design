@@ -1,0 +1,174 @@
+
+# Designing Youtube or Netflix
+Let's design a video sharing service like Youtube where users will be able to upload/view/search videos.
+
+Similar Services: Netflix, Vimeo
+
+## 1. Requirements and Goals of the System
+
+#### Functional Requirements:
+1. Users should be able to upload videos.
+2. Users should have ability to share and view videos.
+3. Users should be able to perform searches based on video titles.
+4. Service should have starts on videos, e.g likes/dislikes, no. of views, etc.
+5. Users should be able to add and view comments on videos
+
+
+#### Non-Functional Requirements:
+- System should be highly reliable, any video uploaded should never be lost.
+- System should be highly available.
+- Users should have a real time experience while watching videos and shoult not feel any lag.
+
+
+## 2. Capacity Estimation and Constraints
+
+Assume we have 1 billion total users, 800 million daily active. If on average a user views 5 videos per day, then the total video views per second is:
+
+```
+800000000 * 5 / (60 * 60 * 24) ==> ~46000 videos/sec
+```
+
+Now, let's assume our upload:view ratio is 1:200 (For every video upload, we have 200 videos viewed)
+The number of videos uploaded per second is:
+
+```
+46000 / 200 => 230 videos/sec
+```
+
+
+**Storage Estimates:** Lets assume 500 hours of video per minute are uploaeded. If on average, one minute of video needs 50MB of storage(videos need to be stored in multiple formats), then total storage is:
+
+```
+500 hours * 60 min * 50 MB => 1500 GB/min OR 25GB/sec
+```
+
+We are ignoring video compression and replication, which would change our storage estimates.
+
+**Bandwidth Estimates:** 500 videos/min of uploads, and assuming each video takes a bandwidth of 10 MB/min, we would be getting:
+
+```
+500 hours * 60 mins * 10 MB ==> 300 GB/min == 5GB/sec
+```
+
+With upload:view ratio being 1:200, we would need 
+`200 * 5GB/sec ==> 1TB/s` outgoing bandwidth.
+
+## 3. System APIs
+We can have a RESTful API to expose the functionality of our service.
+
+#### Uploading a video
+```python
+upload_video(
+    api_dev_key,  # (string): API developer key of registered account.
+    video_title,  # (string): Title of the video.
+    video_desc,   # (string): Optional description of video.
+    tags,         # (string): Optional tags for the video.
+    category_id,  # (string): Category of the video, e.g Song, Docuseries, etc.
+    default_language,   # (string): English, Mandarin, Fr, etc.
+    recording_details,  # (string): Location where video was recorded.
+    video_contents      # (stream): Video to be uploaded.
+)
+
+```
+Returns:
+(string):
+A successful upload will return HTTP 202 (request accepted) and once the video encoding is completed the user is notified through email with a link to access the video.
+
+#### Searching video
+```python
+search_video(
+    api_dev_key,
+    search_query,   # (string): containing the search term
+    user_location,  # (string): optional location of user performing search
+    maximum_videos_to_return,  # (number): max number of results returned in one request
+    page_token      # (string): This token specifies a page in the result set to be returned
+)
+```
+Returns: (JSON)
+
+A JSON containing informaiton about the list of video resources matching the search query.
+Each resource will have a video title, a video creation date, and a view count.
+
+#### Streaming video
+```python
+stream_video(
+    api_dev_key, 
+    video_id,   # (string): unique ID of the video
+    offset,     # (number): time in offset from the beginning of the video. If we support
+                # pausing a video from multiple devices, we need to store the offset.
+                # This enables the user to pick up watching a video where they left from.
+    codec,      # (string): 
+    resolution  # (string): Imagine watching a video on TV app, pausing it, then resuming on
+                # Netflix mobile app, you'll need codec and resolution, as both devices have
+                # different resolution and use a different codec.
+)
+```
+Returns: (STREAM)
+A media stream (video chunk) from the given offset.
+
+
+## 4. High Level Design
+At a high-level we would need the following components:
+1. **Processing Queue:**: Each uploaded video will be pushed to a processing queue ot be de-queued later for encoding, thumbnail generation, and storage.
+2. **Encoder:** To encode each uploaded video into multiple formats.
+3. **Thumbnails generator:** To generate thumbnails for each video.
+4. **Video and Thumbnail storage:** To store video and thumbnail files in some distributed file storage.
+5. **User DB:** To store user's info e.g name, email, address, etc.
+6. **Video metadata storage:** A metadata DB to store information about videos like title, its file path, uploading user, total views, likes, comments etc. 
+
+![](images/hld_youtube.png)
+
+## 5. Database Schema
+
+#### Video metadata storage - MySQL
+- VideoID
+- Title
+- Description
+- Size
+- Thumbnail
+- Uploader/User
+- Total likes
+- Total dislikes
+- Total views
+
+For each video comment, we nneed to store:
+- CommentID
+- VideoID
+- UserID
+- Comment
+- CreatedAt
+
+#### User data storage - MySQL
+* UserID, Name, email, address, age, registration details etc
+
+## 6. Detailed Component Design
+The service will be read-heavy, since more people are viewing than uploading videos. We'll focus on building a system that can retrieve videos quickly. We can expect a read:write ratio of 200:1.
+
+#### Where would videos be stored?
+Videos can be stored in a distributed file storage system like HDFS or GlusterFS.
+
+#### Hows should we efficiently manage read traffic?
+We should seperate read from write traffic. We can distribute our read traffic on different servers, since we will have multiple copies of each video.
+For metadata, we can have a master-slave config where writes go to master first and then gets applied at all the slaves. Such configurations can cause some staleness in data, e.g., when a new video is added, its metadata would be inserted in the master first and before it gets applied at the slave, our slaves would not be able to see it; and therefore it will be returning stale results to the user. This staleness might be acceptable in our system as it would be very short-lived and the user would be able to see the new videos after a few milliseconds.
+
+#### Where would thumbnails be stored?
+There will be a lot more thumbnails than videos. Assume each video has 5 thumbnails, we need to have a very efficient storage system that'll serve huge read traffic.
+Two considerations:
+1. Thumbnails are small files, max 5KB each.
+2. Read traffic for thumbnails will be huge compared to videos. Users will be watching one video at a time, but they might be looking at a page that has 20 thumbnails of other videos.
+
+Let's evaluate storing thumbnails on disk.
+Given the huge number of files, we have to perform a lot of seeks to different locations on the disk to read these files. This is quite inefficient and will result in higher latencies.
+
+- **[BigTable](https://cloud.google.com/bigtable/)** can be a reasonable option choice here as it combines multiple files into one block to store on the disk and is very efficient in reading small amounts of data. Both of these are 2 significant requirements of our service. It also autoscales and is easy to replicate and can handle millions of operations per second. Changes to the deployment configuration are also immediate, so there’s no downtime during reconfiguration. 
+- Keeping hot thumbnails in cache will also help improve latencies and, given that thumbnails are small in size, we can cache a large number of them in memory.
+
+#### Video uploads: 
+Since videos could be huge, if while uploading the connection drops, we should support resuming from the same point.
+
+#### Video Encoding:
+Newly uploaded videos are stored on the server and a new task is queued to the processing queue to encode the video into multiple formats. Once completed, the uploader will be notified and the video is made available for viewing/sharing.
+
+
+![](images/detailed_design_youtube.png)
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`Detailed component design of Youtube`
