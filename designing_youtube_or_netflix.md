@@ -107,7 +107,7 @@ Returns: (STREAM)
 A media stream (video chunk) from the given offset.
 
 
-## High Level Design
+## 4. High Level Design
 At a high-level we would need the following components:
 1. **Processing Queue:**: Each uploaded video will be pushed to a processing queue ot be de-queued later for encoding, thumbnail generation, and storage.
 2. **Encoder:** To encode each uploaded video into multiple formats.
@@ -118,6 +118,58 @@ At a high-level we would need the following components:
 
 ![](images/hld_youtube.png)
 
-## Database Schema
+## 5. Database Schema
 
 #### Video metadata storage - MySQL
+- VideoID
+- Title
+- Description
+- Size
+- Thumbnail
+- Uploader/User
+- Total likes
+- Total dislikes
+- Total views
+
+For each video comment, we nneed to store:
+- CommentID
+- VideoID
+- UserID
+- Comment
+- CreatedAt
+
+#### User data storage - MySQL
+* UserID, Name, email, address, age, registration details etc
+
+## 6. Detailed Component Design
+The service will be read-heavy, since more people are viewing than uploading videos. We'll focus on building a system that can retrieve videos quickly. We can expect a read:write ratio of 200:1.
+
+#### Where would videos be stored?
+Videos can be stored in a distributed file storage system like HDFS or GlusterFS.
+
+#### Hows should we efficiently manage read traffic?
+We should seperate read from write traffic. We can distribute our read traffic on different servers, since we will have multiple copies of each video.
+For metadata, we can have a master-slave config where writes go to master first and then gets applied at all the slaves. Such configurations can cause some staleness in data, e.g., when a new video is added, its metadata would be inserted in the master first and before it gets applied at the slave, our slaves would not be able to see it; and therefore it will be returning stale results to the user. This staleness might be acceptable in our system as it would be very short-lived and the user would be able to see the new videos after a few milliseconds.
+
+#### Where would thumbnails be stored?
+There will be a lot more thumbnails than videos. Assume each video has 5 thumbnails, we need to have a very efficient storage system that'll serve huge read traffic.
+Two considerations:
+1. Thumbnails are small files, max 5KB each.
+2. Read traffic for thumbnails will be huge compared to videos. Users will be watching one video at a time, but they might be looking at a page that has 20 thumbnails of other videos.
+
+Let's evaluate storing thumbnails on disk.
+Given the huge number of files, we have to perform a lot of seeks to different locations on the disk to read these files. This is quite inefficient and will result in higher latencies.
+
+- **[BigTable](https://cloud.google.com/bigtable/)** can be a reasonable option choice here as it combines multiple files into one block to store on the disk and is very efficient in reading small amounts of data. Both of these are 2 significant requirements of our service. It also autoscales and is easy to replicate and can handle millions of operations per second. Changes to the deployment configuration are also immediate, so there’s no downtime during reconfiguration. 
+- Keeping hot thumbnails in cache will also help improve latencies and, given that thumbnails are small in size, we can cache a large number of them in memory.
+
+#### Video uploads: 
+Since videos could be huge, if while uploading the connection drops, we should support resuming from the same point.
+
+#### Video Encoding:
+Newly uploaded videos are stored on the server and a new task is queued to the processing queue to encode the video into multiple formats. Once completed, the uploader will be notified and the video is made available for viewing/sharing.
+
+
+```python
+
+```
