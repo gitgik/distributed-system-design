@@ -172,3 +172,23 @@ Newly uploaded videos are stored on the server and a new task is queued to the p
 
 ![](images/detailed_design_youtube.png)
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`Detailed component design of Youtube`
+
+## 7. Metadata Sharding
+Read load is extremely high because of huge number of newly uploaded videos. Therefore,
+we need to distribute our data onto multiple machines that can share read/write operations 
+efficiently.
+We have a number of strategies when it comes to sharding:
+#### Sharding based on UserID:
+We can try storing all data for a particular user on one server. While storing, we can pass the UserID into a hash function which will map the user to a DB server where we'll store their videos metadata. While querying for videos, we can ask our hash function to  find the server holding the users' data and read it from there. To search videos by title we will ahve to query all servers and each server will return a set of videos.
+A centralized server will then aggregate and rank them before returning them to the user.
+
+Problems with this approach:
+1. What if a user becomes popular? There will be a lot of queries on the user's server holding their videos; this could create a performance bottleneck.
+2. Over time, some users can end up storing a lot of videos compared to others. Maintaining a uniform distribution of growing user data is quite tricky.
+
+To recover from these situations, we can **repartition/redistribute** our data or use **consistent hashing to balance the load between servers**
+
+
+```python
+
+```
