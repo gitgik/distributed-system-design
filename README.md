@@ -71,3 +71,22 @@ Assuming we'll have more read than write traffic, we can decide to have separate
 On the backend, we need an efficient DB that can store all tweets and can support a huge number of reads. We also need a distributed file storage system for storing static media like photos and videos.
 
 ![](images/twitter_like_high_level.png)
+
+
+## Step 6: Detailed design
+Dig deeper into 2-3 components; the interviewer's feedback should always guide you on what parts of the system needs further discussion. 
+* we should present different approaches
+* present their pros and cons,
+* and explain why we will prefere one approach to the other
+
+There's no single right answer.
+
+> The only important thing is to consider tradeoffs between different options while keeping system constraints in mind.
+
+
+Questions to consider include:
+- Since we will store massive amounts of data, how should we partition our data to distribute it to multiple dBs? Should we try to store all data of a user on the same DB? What issue could this cause?
+- How will we handle hot users who tweet a lot or follow a lot of people?
+- Since users' tieline will contain the most recent tweets, should we try to store our data in such a way that is optimized for scanning latest tweets?
+- How much and at what parts should we introduce cache to speed things up?
+- What components need better load balancing?
