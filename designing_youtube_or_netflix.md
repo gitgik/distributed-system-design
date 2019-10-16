@@ -235,7 +235,14 @@ This means that certain videos are so popular the majority of people view them.
 Therefore, we can try caching 20% of daily read volume of videos and metadata.
 
 
+## 11. Content Delivery Networks (CDN)
+A CDN is a system of distributed servers that deliver static media content to a user based in the geographic locations of the user.
 
-```python
+Our service can move popular videos to CDNs:
+- CDNs replicate content in multiple places, There a better chance of videos being closer to the user and, with fewer hops, videos will stream from a friendlier network.
+- CDN machines make heavy use of caching and can mostly serve videos out of memory.
 
-```
+Less popular videos that are not cached by CDNs can be served by our servers in various data centers.
+
+## 12. Fault Tolerance
+We should use [Consistent Hashing](https://en.wikipedia.org/wiki/Consistent_hashing) to help in replacing dead servers, and distributing load among servers.
