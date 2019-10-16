@@ -188,6 +188,11 @@ Problems with this approach:
 
 To recover from these situations, we can **repartition/redistribute** our data or use **consistent hashing to balance the load between servers**
 
+#### Sharding based on VideoID:
+Our hash function will map each videoID to a random server where we'll sotre the Video's metadata. To find videos of a user, we query all servers adn each server returns a set of videos. A centralized server will aggregate and rank the results before returning them to the user. This approach solves our problem with hot users, but shifts it to popular videos.
+
+We can further improve our performance by introducing a cache to store hot videos in front of the database servers.
+
 
 ```python
 
