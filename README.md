@@ -60,3 +60,14 @@ Examples for a Twitter-like service:
  - FavoriteTweets: user_id, tweet_id, timestamp
  
  > Which database system should be use? Will NoSQL best fit our needs, or should we use a MySQL-like relational DB? What kind of block storage should we use to store photos and videos?
+ 
+ ## Step 5: High-level Design
+ Draw a block diagram with 5-6 boxes representing the core system components. We should identify enough components that are needed to solve the problem from end-to-end.
+ 
+For Twitter-like service, at a high-level, we need multiple application servers to serve all read/write requests with load balancers in from of them for traffic distributions. 
+ 
+Assuming we'll have more read than write traffic, we can decide to have separate servers for handling these scenarios.
+
+On the backend, we need an efficient DB that can store all tweets and can support a huge number of reads. We also need a distributed file storage system for storing static media like photos and videos.
+
+![](images/twitter_like_high_level.png)
