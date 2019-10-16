@@ -211,6 +211,15 @@ Deduplication should happen when a user is uploading a video as compared to post
 If we already have a copy of the video being uploaded, we can either stop the upload and use the existing copy or continue upload and use the newly uploaded video **if it is of higher quality**. We can also divide the video into smaller chunks if the new video is a subpart of the existing video, or vice versa, so that we **only upload the missing parts**.
 
 
+## 9. Load Balancing
+We should use [Consistent Hashing](https://en.wikipedia.org/wiki/Consistent_hashing#targetText=In%20computer%20science%2C%20consistent%20hashing,is%20the%20number%20of%20slots.) among cache servers, which will also help in balancing the load between cache servers. It allows us to distribute data across a cluster in such a way that will minimize reorganization when nodes are added or removed. Hence, the caching system will be easier to scale up or scale down.
+Difference in popularity of videos can lead to uneven load on logical repicas. For instance, if a video becomes popular, the logical replica corresponding to that video will experience more traffic than other servers. This will then translate to uneven load distribution on corresponding physical servers. 
+
+To resolve this issue, **any busy server in one location can redirect a client to a less busy server in the same cache location.** We can use dynamic HTTP redirections for this scenario.
+
+But the use of redirections also has its drawbacks. Since our service tries to lad balance locally, it leads to multiple redirections if the host
+
+
 
 ```python
 
