@@ -188,7 +188,61 @@ Problems with this approach:
 
 To recover from these situations, we can **repartition/redistribute** our data or use **consistent hashing to balance the load between servers**
 
+#### Sharding based on VideoID:
+Our hash function will map each videoID to a random server where we'll sotre the Video's metadata. To find videos of a user, we query all servers adn each server returns a set of videos. A centralized server will aggregate and rank the results before returning them to the user. This approach solves our problem with hot users, but shifts it to popular videos.
 
-```python
+We can further improve our performance by introducing a cache to store hot videos in front of the database servers.
 
-```
+## 8. Video Deduplication
+With a huge number of users uploading massive amounts of video data, our service will have to deal with widspread video duplication. Duplicate videos often differ in aspect ratios or encodings, can contain overlays or additional borders, or can be excerpts from a longer original video.
+
+Having duplicate videos can have the following impact on many levels:
+1. Data Storage: we'd waste storage by keeping multiple copies of the same video.
+2. Caching: They'll degrade cache efficiency by taking up space tht could be used for unique content.
+3. Network usage: They'll increase data sent over the network to in-network caching systems.
+4. Energy consumption: Higher storage, inefficient cache and high network usage could result in energy wastage.
+5. Effect to our user: Duplicate search results, longer video startup times, and interrupted streaming.
+
+#### How do we implement deduplication?
+Deduplication should happen when a user is uploading a video as compared to post-processing it to find videos later. Inline deduplication will save us a lot of resources that could be used to encode, transfer, and store the duplicate copy of the video. As soon as any user starts uploading a vidoe, our service can run video matching algorithms to find duplications. Such algorithms include:
+- [Block Matching](https://en.wikipedia.org/wiki/Block-matching_algorithm), 
+- [Phase Correlation](https://en.wikipedia.org/wiki/Phase_correlation), etc. 
+
+If we already have a copy of the video being uploaded, we can either stop the upload and use the existing copy or continue upload and use the newly uploaded video **if it is of higher quality**. We can also divide the video into smaller chunks if the new video is a subpart of the existing video, or vice versa, so that we **only upload the missing parts**.
+
+
+## 9. Load Balancing
+We should use [Consistent Hashing](https://en.wikipedia.org/wiki/Consistent_hashing#targetText=In%20computer%20science%2C%20consistent%20hashing,is%20the%20number%20of%20slots.) among cache servers, which will also help in balancing the load between cache servers. It allows us to distribute data across a cluster in such a way that will minimize reorganization when nodes are added or removed. Hence, the caching system will be easier to scale up or scale down.
+Difference in popularity of videos can lead to uneven load on logical repicas. For instance, if a video becomes popular, the logical replica corresponding to that video will experience more traffic than other servers. This will then translate to uneven load distribution on corresponding physical servers. 
+
+To resolve this issue, **any busy server in one location can redirect a client to a less busy server in the same cache location.** We can use dynamic HTTP redirections for this scenario.
+
+But the use of redirections also has its drawbacks. Since our service tries to lad balance locally, it leads to multiple other redirections when the host that receives the redirection can't serve the video. Also, redirection requires the client to make additional HTTP request; it also leads to higher delays before the video starts playing. 
+
+
+## 10. Cache
+Our service should push its content closer to the user using a large number of geographically distributed video cache servers.
+
+We can introduce a cache for metadata servers to cache hot DB rows. Using Memcache to cache the data and Application servers before hitting the DB ca quickly check if the cache has the desired rows. 
+
+Least Frequently Used(LRU) can be a reasonable cache eviction policy (to remove videos that shouldn't be cached) for our system. Under this policy, discard the least recently viewed row first.
+
+#### How can we build more intelligent cache?
+If we go with the 80-20 rule, 
+> 20% of daily read volume comes from videos generating 80% of traffic.
+This means that certain videos are so popular the majority of people view them.
+
+Therefore, we can try caching 20% of daily read volume of videos and metadata.
+
+
+## 11. Content Delivery Networks (CDN)
+A CDN is a system of distributed servers that deliver static media content to a user based in the geographic locations of the user.
+
+Our service can move popular videos to CDNs:
+- CDNs replicate content in multiple places, There a better chance of videos being closer to the user and, with fewer hops, videos will stream from a friendlier network.
+- CDN machines make heavy use of caching and can mostly serve videos out of memory.
+
+Less popular videos that are not cached by CDNs can be served by our servers in various data centers.
+
+## 12. Fault Tolerance
+We should use [Consistent Hashing](https://en.wikipedia.org/wiki/Consistent_hashing) to help in replacing dead servers, and distributing load among servers.
