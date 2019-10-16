@@ -1,6 +1,22 @@
 # distributed-system-design
 A curated collection of approaches to creating large scale distributed systems during interviews.
 
+
+## Step 0: Intro
+
+A lot of software engineers struggle with system design interviews (SDIs) primarily because of three reasons:
+
+The unstructured nature of SDIs, where they are asked to work on an open-ended design problem that doesn’t have a standard answer.
+Their lack of experience in developing large scale systems.
+They did not prepare for SDIs.
+
+At top companies such as Google, FB, Amazon, Microsoft, etc., candidates who don't perform above average have a limited chance to get an offer. 
+
+Good performance always results in a better offer (higher position and salary), since it shows the candidate's ability to handle a complex system.
+
+The steps below will help guilde you to solve mutiple complex design problems.
+
+
 ## Step 1: Requirements Clarifications
 It's always a good idea to know the exact scope of the problem we are solving. 
 Design questions are mostly open-ended, that's why clarifying ambiguities early in the interview becomes critical. Since we have 30-45 minutes to design a (supposedly large system, we should clarify what parts of the system we will be focusing on.
@@ -90,3 +106,12 @@ Questions to consider include:
 - Since users' tieline will contain the most recent tweets, should we try to store our data in such a way that is optimized for scanning latest tweets?
 - How much and at what parts should we introduce cache to speed things up?
 - What components need better load balancing?
+
+
+## Step 7: Identifyng and resolving bottlenecks
+Discuss as many bottlenecks and the different approaches to mitigate them.
+
+- Is there a single point of failure? What are we doing to mitigate this?
+- Do we have enough replicas of data that if we lose a few servers, we can still serve our users?
+- Similary, do we have enough copies of different services running such that a few failures will not cause a total system shutdown?
+- How are we monitoring performance? Do we get alerts whenever critical system components fail or performance degrades?
