@@ -193,6 +193,24 @@ Our hash function will map each videoID to a random server where we'll sotre the
 
 We can further improve our performance by introducing a cache to store hot videos in front of the database servers.
 
+## 8. Video Deduplication
+With a huge number of users uploading massive amounts of video data, our service will have to deal with widspread video duplication. Duplicate videos often differ in aspect ratios or encodings, can contain overlays or additional borders, or can be excerpts from a longer original video.
+
+Having duplicate videos can have the following impact on many levels:
+1. Data Storage: we'd waste storage by keeping multiple copies of the same video.
+2. Caching: They'll degrade cache efficiency by taking up space tht could be used for unique content.
+3. Network usage: They'll increase data sent over the network to in-network caching systems.
+4. Energy consumption: Higher storage, inefficient cache and high network usage could result in energy wastage.
+5. Effect to our user: Duplicate search results, longer video startup times, and interrupted streaming.
+
+#### How do we implement deduplication?
+Deduplication should happen when a user is uploading a video as compared to post-processing it to find videos later. Inline deduplication will save us a lot of resources that could be used to encode, transfer, and store the duplicate copy of the video. As soon as any user starts uploading a vidoe, our service can run video matching algorithms to find duplications. Such algorithms include:
+- [Block Matching](https://en.wikipedia.org/wiki/Block-matching_algorithm), 
+- [Phase Correlation](https://en.wikipedia.org/wiki/Phase_correlation), etc. 
+
+If we already have a copy of the video being uploaded, we can either stop the upload and use the existing copy or continue upload and use the newly uploaded video **if it is of higher quality**. We can also divide the video into smaller chunks if the new video is a subpart of the existing video, or vice versa, so that we **only upload the missing parts**.
+
+
 
 ```python
 
