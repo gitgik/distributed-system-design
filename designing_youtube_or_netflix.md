@@ -217,7 +217,22 @@ Difference in popularity of videos can lead to uneven load on logical repicas. F
 
 To resolve this issue, **any busy server in one location can redirect a client to a less busy server in the same cache location.** We can use dynamic HTTP redirections for this scenario.
 
-But the use of redirections also has its drawbacks. Since our service tries to lad balance locally, it leads to multiple redirections if the host
+But the use of redirections also has its drawbacks. Since our service tries to lad balance locally, it leads to multiple other redirections when the host that receives the redirection can't serve the video. Also, redirection requires the client to make additional HTTP request; it also leads to higher delays before the video starts playing. 
+
+
+## 10. Cache
+Our service should push its content closer to the user using a large number of geographically distributed video cache servers.
+
+We can introduce a cache for metadata servers to cache hot DB rows. Using Memcache to cache the data and Application servers before hitting the DB ca quickly check if the cache has the desired rows. 
+
+Least Frequently Used(LRU) can be a reasonable cache eviction policy (to remove videos that shouldn't be cached) for our system. Under this policy, discard the least recently viewed row first.
+
+#### How can we build more intelligent cache?
+If we go with the 80-20 rule, 
+> 20% of daily read volume comes from videos generating 80% of traffic.
+This means that certain videos are so popular the majority of people view them.
+
+Therefore, we can try caching 20% of daily read volume of videos and metadata.
 
 
 
