@@ -1,6 +1,10 @@
 # distributed-system-design
 A curated collection of approaches to creating large scale distributed systems during interviews.
 
+System Design Problems:
+1. [Designing Youtube or Netflix](designing_youtube_or_netflix.md)
+2. [Designing Uber or Lyft](designing_uber_backend.md)
+
 
 ## Step 0: Intro
 
