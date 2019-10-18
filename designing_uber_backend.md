@@ -146,7 +146,7 @@ We can have a grid shrink/grow an extra 10% before we partition/merge them. This
 
 ![](images/uber_system_design.png)
 
-###  Request Ride use case
+###  "Requesting a Ride" use case
 1. The customer will put a request for a ride
 2. One of the Aggregator servers will take the request and asks QuadTree servers to return nearby drivers.
 3. The Aggregator server collects all the results and sorts them by ratings.
@@ -158,3 +158,18 @@ We can have a grid shrink/grow an extra 10% before we partition/merge them. This
 
 #### What if a Driver Location server or Notification server dies?
 We need replicas of these servers,so that the primary can failover to the secondary server. Also we can store data in some persistent storage like SSDs that provide fast IOs; this ensures that if both primary and secondary servers die, we can recover the data from persistent storage.
+
+## 5. Ranking Drivers
+We can rank search results not just by proximity but also by popularity or relevance.
+
+
+#### How can we return top rated drivers within a given radius?
+Let's assume we keep track of the overall ratings in our database and QuadTree. An aggregated number can represent this popularirt in our system. 
+
+For example, while searching for the top 10 drivers within a given radius, we can ask each partition of QuadTree to return the top 10 drivers with a maximum rating. The aggregator server can then determine the top 10 drivers among all drivers returned.
+
+
+
+```python
+
+```
