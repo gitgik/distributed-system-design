@@ -51,8 +51,9 @@ We need object storage servers to store photos and also some DB servers to store
 We need to store user data, their photos, and people they follow.
 Photo table 
 
+>
 
->| Photo    |            
+| Photo    |            
 | --- |             
 | PhotoID: int (PK) |     
 | UserID: int     |
@@ -62,8 +63,9 @@ Photo table
 | UserLongitude: int |
 | CreationDate: datetime |
 
+>
 
->| User |
+| User |
 | --- |
 | UserID: int (PK) |
 | Name: varchar(20) |
@@ -71,7 +73,9 @@ Photo table
 | CreatedAt: datetime |
 | LastLogin: datetime |
 
->|UserFollow |  |
+>
+
+|UserFollow |  |
 |---|---|
 | PK | UserID1: int |
 | PK | UserID2: int|
