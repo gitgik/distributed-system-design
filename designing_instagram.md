@@ -130,6 +130,7 @@ Each row will have 8 bytes. Assume on average, each user follows 500 users, We w
 Total space required for the DB tables will be:
 ```
 32 GB + 1.88 + 1.82  ~= 3.7TB
+```
 
 ## 6. Component Design
 
@@ -241,8 +242,3 @@ For cache eviction, we can use Least Recently User (LRU), where we discard the l
 #### **How can we build a more intelligent cache?** 
 
 If we go with 80-20 rule, 20% of photo reads generates 80% of traffic. This means that certain photos are so popular that the majority of people view/search them. Therefore, we can try caching 20% of daily read volume of photos and metadata. 
-
-
-```python
-
-```
