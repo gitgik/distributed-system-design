@@ -4,8 +4,10 @@ A curated collection of approaches to creating large scale distributed systems d
 System Design Problems:
 1. [Designing Instagram](designing_instagram.md)
 2. [Designing Twitter](designing_twitter.md)
-1. [Designing Youtube or Netflix](designing_youtube_or_netflix.md)
-2. [Designing Uber or Lyft](designing_uber_backend.md)
+3. [Designing Youtube or Netflix](designing_youtube_or_netflix.md)
+4. [Designing Uber or Lyft](designing_uber_backend.md)
+5. [Designing Typeahead Suggestion like Google Search](designing_typeahead_suggestion.md)
+
 
 
 ## Step 0: Intro
