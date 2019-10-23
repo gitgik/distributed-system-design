@@ -14,7 +14,7 @@ It's not about speeding up the users' search but to help the user articulate the
 **Non-functional requirements:** The suggestions should appear in real-time, allowing the user to see it in about 200ms.
 
 
-# 2. Basic System Design and Algorithm
+## 2. Basic System Design and Algorithm
 
 The problem to solve is that we have a lot of strings we need to store in such a way that the user can search with any prefix. The service will suggest the terms that match with the prefix. For example, if our DB contains the terms (cat, cap, captain, capital), and the user has typed in `cap`, then the system should suggest `cap`, `captain` and `capital`.
 
@@ -191,8 +191,3 @@ When a trie server goes down, we already have a Master-Slave configuration. So i
 
 ## 9. Personalization
 Users will receive some typeahead suggestions based on their historical searches, location, language, etc. We can store the personal history of each user separately on the server and also cache them on the client. The server can add these personalized terms in the final set before sending it to the user. Personalized searches should always come before others.
-
-
-```python
-
-```
