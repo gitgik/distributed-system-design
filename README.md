@@ -1,4 +1,4 @@
-# distributed-system-design
+# Distributed System Design
 A curated collection of approaches to creating large scale distributed systems during interviews.
 
 System Design Problems:
@@ -8,7 +8,7 @@ System Design Problems:
 4. [Designing Uber or Lyft](designing_uber_backend.md)
 5. [Designing Typeahead Suggestion like Google Search](designing_typeahead_suggestion.md)
 
-
+&nbsp;
 
 ## Step 0: Intro
 
@@ -18,7 +18,7 @@ The unstructured nature of SDIs, where they are asked to work on an open-ended d
 Their lack of experience in developing large scale systems.
 They did not prepare for SDIs.
 
-At top companies such as Google, FB, Amazon, Microsoft, etc., candidates who don't perform above average have a limited chance to get an offer. 
+At top companies such as Google, FB, Amazon, Microsoft, etc., candidates who don't perform above average have a limited chance to get an offer.
 
 Good performance always results in a better offer (higher position and salary), since it shows the candidate's ability to handle a complex system.
 
@@ -26,7 +26,7 @@ The steps below will help guilde you to solve mutiple complex design problems.
 
 
 ## Step 1: Requirements Clarifications
-It's always a good idea to know the exact scope of the problem we are solving. 
+It's always a good idea to know the exact scope of the problem we are solving.
 Design questions are mostly open-ended, that's why clarifying ambiguities early in the interview becomes critical. Since we have 30-45 minutes to design a (supposedly large system, we should clarify what parts of the system we will be focusing on.
 
 Let's look at an example: Twitter-like service.
@@ -82,14 +82,14 @@ Examples for a Twitter-like service:
  - Tweet: tweet_id, contentm tweet_location, number_of_likes, timestamp, etc.
  - UserFollowers: user_id1, user_id2
  - FavoriteTweets: user_id, tweet_id, timestamp
- 
+
  > Which database system should be use? Will NoSQL best fit our needs, or should we use a MySQL-like relational DB? What kind of block storage should we use to store photos and videos?
- 
+
  ## Step 5: High-level Design
  Draw a block diagram with 5-6 boxes representing the core system components. We should identify enough components that are needed to solve the problem from end-to-end.
- 
-For Twitter-like service, at a high-level, we need multiple application servers to serve all read/write requests with load balancers in from of them for traffic distributions. 
- 
+
+For Twitter-like service, at a high-level, we need multiple application servers to serve all read/write requests with load balancers in from of them for traffic distributions.
+
 Assuming we'll have more read than write traffic, we can decide to have separate servers for handling these scenarios.
 
 On the backend, we need an efficient DB that can store all tweets and can support a huge number of reads. We also need a distributed file storage system for storing static media like photos and videos.
@@ -98,7 +98,7 @@ On the backend, we need an efficient DB that can store all tweets and can suppor
 
 
 ## Step 6: Detailed design
-Dig deeper into 2-3 components; the interviewer's feedback should always guide you on what parts of the system needs further discussion. 
+Dig deeper into 2-3 components; the interviewer's feedback should always guide you on what parts of the system needs further discussion.
 * we should present different approaches
 * present their pros and cons,
 * and explain why we will prefere one approach to the other
