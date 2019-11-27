@@ -7,6 +7,7 @@ System Design Problems:
 3. [Designing Youtube or Netflix](designing_youtube_or_netflix.md)
 4. [Designing Uber or Lyft](designing_uber_backend.md)
 5. [Designing Typeahead Suggestion like Google Search](designing_typeahead_suggestion.md)
+6. [Designing API Rate Limiter](designing_api_rate_limiter.ipynb)
 
 &nbsp;
 
