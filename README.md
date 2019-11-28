@@ -4,10 +4,11 @@ A curated collection of approaches to creating large scale distributed systems d
 System Design Problems:
 1. [Designing Instagram](designing_instagram.md)
 2. [Designing Twitter](designing_twitter.md)
-3. [Designing Youtube or Netflix](designing_youtube_or_netflix.md)
-4. [Designing Uber or Lyft](designing_uber_backend.md)
-5. [Designing Typeahead Suggestion like Google Search](designing_typeahead_suggestion.md)
-6. [Designing API Rate Limiter](designing_api_rate_limiter.ipynb)
+3. [Designing Twitter Search](designing_twitter_search.ipynb)
+4. [Designing Youtube or Netflix](designing_youtube_or_netflix.md)
+5. [Designing Uber or Lyft](designing_uber_backend.md)
+6. [Designing Typeahead Suggestion like Google Search](designing_typeahead_suggestion.md)
+7. [Designing API Rate Limiter](designing_api_rate_limiter.ipynb)
 
 &nbsp;
 
