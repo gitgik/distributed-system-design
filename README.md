@@ -1,4 +1,8 @@
 # Distributed System Design
+[![Build Status](https://travis-ci.org/gitgik/distributed-system-design.svg?branch=master)](https://travis-ci.org/gitgik/distributed-system-design)
+[![Code Quality](https://api.codacy.com/project/badge/Grade/0ab2d18dac654883a4d68ab6bc790c5e)](https://www.codacy.com/manual/gitgik/distributed-system-design?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=gitgik/distributed-system-design&amp;utm_campaign=Badge_Grade)
+[![Codecov](https://codecov.io/gh/gitgik/distributed-system-design/branch/master/graph/badge.svg)](https://codecov.io/gh/gitgik/distributed-system-design)
+
 A curated collection of approaches to creating large scale distributed systems during interviews.
 
 System Design Problems:
