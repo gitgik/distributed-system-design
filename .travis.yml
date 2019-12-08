@@ -1,0 +1,22 @@
+language: python
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+
+python:
+  - 3.6
+
+before_install:
+  - pip install --upgrade pip
+  - pip install --upgrade setuptools wheel nose coverage codecov
+
+install:
+  - pip install nbval
+  - pip install -r requirements.txt
+
+script:
+  - pytest --nbval
+
+after_success:
+  - codecov
