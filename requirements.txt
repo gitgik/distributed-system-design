@@ -2,8 +2,6 @@ asn1crypto==0.24.0
 certifi==2019.6.16
 cffi==1.12.2
 chardet==3.0.4
-conda==4.7.5
-conda-package-handling==1.3.10
 cryptography==2.6.1
 cycler==0.10.0
 idna==2.8
