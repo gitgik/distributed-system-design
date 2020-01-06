@@ -12,7 +12,7 @@ System Design Problems:
 5. [Design Uber or Lyft](designing_uber_backend.md)
 6. [Design Typeahead Suggestion like Google Search](designing_typeahead_suggestion.md)
 7. [Design API Rate Limiter](designing_api_rate_limiter.ipynb)
-8. [Design E-ticketing service like Ticketmaster](designing_ticketmaster.ipynb)
+8. [Design E-ticketing service like Ticketmaster](designing_ticketmaster.md)
 
 &nbsp;
 
