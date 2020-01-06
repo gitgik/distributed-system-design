@@ -91,13 +91,13 @@ Returns: (JSON)
     "Seats": 
     [
       {  
-        "Type": "Regular"
-        "Price": 14.99
+        "Type": "Regular",
+        "Price": 14.99,
         "Status": "Almost Full"
       },
       {  
-        "Type": "Premium"
-        "Price": 24.99
+        "Type": "Premium",
+        "Price": 24.99,
         "Status": "Available"
       }
     ]
@@ -117,13 +117,13 @@ Returns: (JSON)
     "Seats": 
     [
         {  
-          "Type": "Regular"
-          "Price": 14.99
+          "Type": "Regular",
+          "Price": 14.99,
           "Status": "Full"
       },
         {  
-          "Type": "Premium"
-        "Price": 24.99
+          "Type": "Premium",
+        "Price": 24.99,
         "Status": "Almost Full"
       }
     ]
