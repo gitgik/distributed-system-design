@@ -38,11 +38,11 @@ We need to store information about movies and cinemas; assume another 50 bytes.
 
 So to store all data about all shows of all cinemas of all cities for a day
 
-```
+```text
         500 cities * 10 cinemas * 300 seats * 3 shows * (50 + 50) bytes = 450 MB / day
 ```
 To store data for 5 years, we'd need around
-```
+```text
     450 MB/day * 365 * 5 = 821.25 GB
 ```
 
@@ -140,7 +140,7 @@ reserve_seats(
 ```
 
 Returns: (JSON)
-```
+```text
     The status of the reservation, which would be one of the following:
         1. Reservation Successful,
         2. Reservation Failed - Show Full
@@ -178,10 +178,11 @@ Let's explore the workflow part where there are no seats available to reserve, b
 
 If seats are reserved successfully, the user has 5 minutes to pay for the reservation. After payment, booking is marked complete. If the user isn't able to pay within 5 minutes, all the reserved seats are freed from the reservation pool to become available to other users.
 
-#### How do we keep track of all active reservations that haven't been booked yet? and also keep track of waiting customers?
-We need two daemon services:
+### How we'll keep track of all active reservations that have not been booked yet, and keep track of waiting customers
 
-**a. Active Reservation Service**
+We need two daemon services for this:
+
+#### a. Active Reservation Service
 
 This will keep track of all active reservations and remove expired ones from the system.
 
@@ -196,7 +197,7 @@ In the DB,
 
 - Expiry time will be in the Timestamp column.
 
-- The `Status` field will have a value of `Reserved(1)` and, as soon as a booking is complete, update the status to `Booked(2)`
+- The `Status` field will have a value of `Reserved(1)` and, as soon as a booking is complete, update the status to `Booked(2)`.
 
 - After status is changed, remove the reservation record from Linked HashMap of the relevant show.
 
@@ -218,9 +219,9 @@ hash_table = {
 }
 ```
 
-**b. Waiting User Service**
+#### b. Waiting User Service
 
-- This service will keep track of waiting users in a Linked HashMap or TreeMap.
+- This daemon service will keep track of waiting users in a Linked HashMap or TreeMap.
 - To help us jump to any user in the list and remove them when they cancel the request.
 - Since it's a first-come-first-served basis, the head of the Linked HashMap would always point to the longest waiting user, so that whenever seats become available, we can serve users in a fair manner.
 
@@ -267,4 +268,3 @@ We can use Consistent Hashing to allocate application servers for both (ActiveRe
 2. These servers upon receiving the above message, will query the DB (or a DB cache) to find how many seats are available.
 3. The servers can now expire all waiting users that want to reserve more seats than the available seats.
 4. For this, the WaitingUSerService has to iterate through the Linked HashMap of all the waiting users to remove them.
-
