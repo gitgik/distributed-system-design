@@ -46,7 +46,7 @@ Here are some questions that should be answered before moving on to the next ste
 - Will users be able to post tweets and follow other people?
 - Should we also design to create and display user's timeline?
 - Will the tweets contain photos and videos?
-- Are we focusong on the backend only or are we developing the front-end too?
+- Are we focusing on the backend only or are we developing the front-end too?
 - Will users be able to search tweets?
 - Will there be any push notification for new or important tweets?
 - Do we need to display hot trending topics?
@@ -54,7 +54,8 @@ Here are some questions that should be answered before moving on to the next ste
 
 
 ## Step 2: System Interface definition
-Defin what APIs are expected from the system. This will ensure we haven't gotten any requirements wrong and establish that exact contract expected from the system.
+Define what APIs are expected from the system. This ensures we haven't gotten any requirements wrong
+and establish the exact contract expected from the system.
 
 Example:
 ```python
@@ -99,11 +100,15 @@ Examples for a Twitter-like service:
  ## Step 5: High-level Design
  Draw a block diagram with 5-6 boxes representing the core system components. We should identify enough components that are needed to solve the problem from end-to-end.
 
-For Twitter-like service, at a high-level, we need multiple application servers to serve all read/write requests with load balancers in from of them for traffic distributions.
+For Twitter-like service, at a high-level, we need multiple application servers to serve all
+read/write requests. Load balancers(LB) should be placed in front of them for traffic distributions.
 
-Assuming we'll have more read than write traffic, we can decide to have separate servers for handling these scenarios.
+Assuming we'll have more read than write traffic, we can decide to have separate servers for
+handling these scenarios.
 
-On the backend, we need an efficient DB that can store all tweets and can support a huge number of reads. We also need a distributed file storage system for storing static media like photos and videos.
+On the backend, we need an efficient Database that can store all tweets and can support a
+huge number of reads.
+We also need a distributed file storage system for storing static media like photos and videos.
 
 ![](images/twitter_like_high_level.png)
 
