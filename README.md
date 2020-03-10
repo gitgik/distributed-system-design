@@ -17,6 +17,10 @@ System Design Problems:
 
 &nbsp;
 
+Object Oriented Design Problems:
+1. [Design Amazon: Online Shopping System](OOP-design/designing_amazon_online_shopping_system.ipynb)
+
+
 ## Step 0: Intro
 
 A lot of software engineers struggle with system design interviews (SDIs) primarily because of three reasons:
