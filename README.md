@@ -8,12 +8,13 @@ System Design Problems:
 1. [Design Instagram](designing_instagram.md)
 2. [Design Twitter](designing_twitter.md)
 3. [Design Twitter Search](designing_twitter_search.ipynb)
-4. [Design Youtube or Netflix](designing_youtube_or_netflix.md)
-5. [Design Uber or Lyft](designing_uber_backend.md)
-6. [Design a Typeahead Suggestion like Google Search](designing_typeahead_suggestion.md)
-7. [Design an API Rate Limiter](designing_api_rate_limiter.ipynb)
-8. [Design an E-ticketing service like Ticketmaster](designing_ticketmaster.md)
-9. [Design a Web Crawler](designing_webcrawler.ipynb)
+4. [Design Instagram Feed](designing_instagram_feed.ipynb)
+5. [Design Youtube or Netflix](designing_youtube_or_netflix.md)
+6. [Design Uber or Lyft](designing_uber_backend.md)
+7. [Design a Typeahead Suggestion like Google Search](designing_typeahead_suggestion.md)
+8. [Design an API Rate Limiter](designing_api_rate_limiter.ipynb)
+9. [Design an E-ticketing service like Ticketmaster](designing_ticketmaster.md)
+10. [Design a Web Crawler](designing_webcrawler.ipynb)
 
 &nbsp;
 
