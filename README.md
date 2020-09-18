@@ -26,9 +26,9 @@ Object Oriented Design Problems:
 
 A lot of software engineers struggle with system design interviews (SDIs) primarily because of three reasons:
 
-The unstructured nature of SDIs, where they are asked to work on an open-ended design problem that doesn’t have a standard answer.
-Their lack of experience in developing large scale systems.
-They did not prepare for SDIs.
+- The unstructured nature of SDIs, where they are asked to work on an open-ended design problem that doesn’t have a standard answer.
+- Their lack of experience in developing large scale systems.
+- They didn't prepare for SDIs.
 
 At top companies such as Google, FB, Amazon, Microsoft, etc., candidates who don't perform above average have a limited chance to get an offer.
 
