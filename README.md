@@ -15,6 +15,7 @@ System Design Problems:
 8. [Design an API Rate Limiter](designing_api_rate_limiter.ipynb)
 9. [Design an E-ticketing service like Ticketmaster](designing_ticketmaster.md)
 10. [Design a Web Crawler](designing_webcrawler.ipynb)
+11. [Design Cloud File Storage like Dropbox/GDrive](designing-cloud-storage.ipynb)
 
 &nbsp;
 
