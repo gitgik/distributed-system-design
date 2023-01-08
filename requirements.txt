@@ -15,7 +15,7 @@ PySocks==1.6.8
 python-dateutil==2.8.0
 ruamel-yaml==0.15.46
 six==1.12.0
-torch==1.1.0
+torch==1.13.1
 tqdm==4.32.1
 urllib3==1.24.2
 pytest==5.3.1
