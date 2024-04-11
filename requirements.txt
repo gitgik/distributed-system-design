@@ -4,7 +4,7 @@ cffi==1.12.2
 chardet==3.0.4
 cryptography==42.0.4
 cycler==0.10.0
-idna==2.8
+idna==3.7
 kiwisolver==1.1.0
 libarchive-c==2.8
 pycosat==0.6.3
