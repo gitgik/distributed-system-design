@@ -17,6 +17,7 @@ System Design Problems:
 9. [Design an E-ticketing service like Ticketmaster](designing_ticketmaster.md)
 10. [Design a Web Crawler](designing_webcrawler.ipynb)
 11. [Design Cloud File Storage like Dropbox/GDrive](designing-cloud-storage.ipynb)
+12. [Distributed Logging](distributed_logging.ipynb)
 
 &nbsp;
 
