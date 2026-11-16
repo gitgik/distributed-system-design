@@ -34,7 +34,7 @@ Let's assume we need to crawl 1Billion websites. Since one site can contain many
 
 
 #### Robots Exclusion Protocol?
-Some web crawlers implement the Robots Exclusion Protocol, which allows Webmasters to declare parts of their sites off limits to crawlers. The Robots Exclusion Protocol requires a Web Crawler to fetch a document called `robot.txt` which contains these declarations for that site before downloading any real content from it.
+Some web crawlers implement the Robots Exclusion Protocol, which allows Webmasters to declare parts of their sites off limits to crawlers. The rules are published in `robots.txt`, not `robot.txt`.
 
 
 ## 3. Capacity Estimation and Constraints
@@ -106,7 +106,7 @@ We can implement these protocols in a modular way for extensibility, so that lat
 
 **Step 3:** After downloading, the document is written into a Document Input Stream (DIS). This will enable other modules to re-read the document multiple times.
 
-**Step 4:** The worker invokes the dedupe test to see whether this document (associated with a different URL) has already been seen before. If so, the document is not processed any further and the worker thread removes the next URL from the frontier.
+**Step 4:** The worker tests whether the document bytes have already been stored. Reuse an existing content object only after confirming equality. Do not skip URL-specific link extraction: identical HTML containing `next.html` resolves differently at `/a/index.html` and `/b/index.html`. Content identity and discovery context are separate.
 
 **Step 5:** Process the downloaded document. Each doc has a different MIME type like HTML page, Image, Video etc. We can implement these MIME schemes in a modular way, to allow for extensibility when our crawler need to support more types. The worker invokes the process method of each processing module with that MIME type.
 
@@ -133,7 +133,7 @@ Once a new URL is added, we determine which sub-queue it belongs to by using the
 The size would be in the 100s of millions of URLs. Therefore, we need to store the URLs on disk. We can implement our queues in such a way that they have separate buffers for enqueuing and dequeuing. Enqueuing buffer, once filled, will be dumped to the disk. Dequeuing buffers will keep a cache of URLs that need to be visited; periodically reading from the disk to fill the buffer.
 
 #### b. The Fetcher Module
-This will download the document corresponding to a given URL using the appropriate network protocol like HTTP. Webmasters create a `robot.txt` to make certain parts of the websites off limits for the crawler.
+This will download the document corresponding to a given URL using the appropriate network protocol like HTTP. Webmasters publish `robots.txt` to declare crawler access rules.
 To avoid downloading this text file on every request, our HTTP protocol module can maintain a cache mapping host-names to their robot's exclusion rules.
 
 #### c. Document input steam
@@ -144,22 +144,38 @@ A DIS is an input stream that caches the doc's entire contents in memory. It als
 Each worker will have a DIS, which it reuses from document to document. After extracting a URL from the frontier, the worker passes that URL to the relevant protocol module (in our case, for HTTP) which initializes the DIS from a network connection to contain the document's contents. The worker then passes the DIS to all relevant processing modules.
 
 #### d. Document Dedupe test
-To prevent processing a doc more than once, we perform a dedupe test on each doc to remove duplication.
+Content deduplication shares stored page bytes; it does not establish that all processing for a URL has already occurred.
 
-We can calculate a 64-bit checksum (using MD5 or SHA) on every processed document and store it in a database. For each new document, we compare its checksum to all previously calculated checksums to see if the doc has been seen before.
+Define equality first. Here, duplicates have identical fetched body bytes; stripping markup or normalizing text would define a different equivalence relation. Retain response metadata and URL-specific processing context separately.
+
+Use an indexed SHA-256 digest to locate candidate content objects, then compare their stored bytes before reusing one. A digest match is a candidate, not proof of equality. MD5 produces 128 bits and SHA-256 produces 256 bits; a 64-bit value would be a truncation, not their full digest. [Python's hash documentation](https://docs.python.org/3/library/hashlib.html) also notes known collision weaknesses in MD5 and SHA-1.
+
+For `n` independent distinct inputs and an ideal uniform `b`-bit hash:
+
+```text
+expected colliding pairs = n * (n - 1) / (2 * 2^b)
+P(at least one collision) ~= 1 - exp(-expected colliding pairs)
+n = 15,000,000,000; b = 64
+expected colliding pairs ~= 6.10
+P(at least one collision) ~= 99.78%
+```
+
+This is a population-wide probability, not a 99.78% collision probability for each document. The uniform-hash model is not a guarantee against deliberately chosen inputs. A wider digest greatly reduces accidental collision risk, but byte comparison is what makes this design's equality decision exact.
 
 ##### How big will be the checksum store
-We need to keep a unique set containing checksums of all previously process documents. Considering 15 billion distinct web pages, we would need about
+For 15 billion distinct content objects, full SHA-256 digests alone occupy:
 ```text
-        15B * 8 bytes => 120 GB
+        15,000,000,000 * 32 bytes = 480,000,000,000 bytes = 480 GB
 ```
-We can have a small LRU cache on each server with everything backed by persistent storage.
+This uses decimal GB and excludes content references, collision candidates, index overhead, replicas, and the page bytes themselves. A 64-bit candidate index would use 120 GB of digest payload, but would still need collision resolution for exact equality.
+
+An LRU cache can reduce candidate lookups, with persistent storage remaining authoritative.
 
 Steps:
-- Check if the checksum is present in the cache.
-- If not, check if the checksum is in the back storage.
-- If found, ignore the document.
-- Otherwise, add the checksum to the cache and back storage.
+- Look up the digest in the cache, falling back to the persistent index on a miss.
+- Compare the fetched bytes with candidate objects. A match permits sharing stored bytes, not skipping base-URL-specific link extraction.
+- If no candidate is equal, retain a separate content object and add it to the digest's candidate set. Never overwrite another object merely because its digest matches.
+- Concurrent publication needs an atomic candidate-index update or transaction so one writer cannot lose another writer's reference. An LRU entry is not that authority.
 
 #### e. URL filters
 URL filtering mechanism provides a customizable way to control the set of URLs that are downloaded. We can define filters to restrict URLs by domain, prefix or protocol type.
@@ -172,12 +188,15 @@ Before we contact a web server, a Web crawler must use a DNS to map the Web serv
 #### g. URL dedupe test
 While extracting links, we will encounter multiple links to the same document. To avoid downloading and processing a doc multiple times, we use a URL dedupe test on each extracted link before adding it to the URL frontier.
 
-We can store a fixed-size checksums for all the URLs seen by our crawler in a database. To reduce number of operations performed on the DB, we can keep an in-memory cache of popular URLs on each host shared by all threads. This is because links to some URLs are quite common, so caching will lead to a high in-memory hit rate.
+Choose an explicit URL normalization policy, then store the resulting URL strings as the equality keys. A hash can route or index candidates, but equality must compare the complete normalized strings. A query parameter, case change, or trailing slash must not be discarded unless the policy establishes that it preserves the resource identity needed by this crawl.
 
-To keep a unique set of checksums of all previously seen URLS, we would need:
+Four-byte hashes provide only `2^32 = 4,294,967,296` possible values. They cannot uniquely identify 15 billion distinct URLs. The original size calculation:
 ```text
         15 Billion URLS  * 4 bytes => 60 GB
 ```
+sizes a collision-prone index, not an exact seen-URL store.
+
+If normalized URLs average `u` bytes, their raw string payload is `15 billion * u` bytes: at an assumed 100 bytes each, 1.5 TB before index overhead and replicas. A shared cache can reduce persistent lookups, but a cache miss does not establish that a URL is new. Approximate membership filters trade memory for false positives; using a positive result as the final decision can skip unseen URLs.
 
 #### h. Checkpointing
 A crawl of the entire Web takes weeks to complete. To guard against failures, our crawler can write regular snapshots of its state to the disk. An interrupted on aborted crawl can easily be restarted from the latest checkpoint.
