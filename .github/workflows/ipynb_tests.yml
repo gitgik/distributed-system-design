@@ -4,7 +4,8 @@ on: [push, pull_request]
 
 jobs:
   test-notebooks:
-    runs-on: ubuntu-latest
+    # Python 3.9 builds are unavailable on Ubuntu 26.04.
+    runs-on: ubuntu-22.04
 
     # Test on multiple Python versions
     strategy:
