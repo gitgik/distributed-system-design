@@ -27,7 +27,10 @@ def load_example(path):
     namespace = {}
     with contextlib.redirect_stdout(io.StringIO()):
         for index, block in enumerate(blocks):
-            exec(compile(block, f"{path}:{index}", "exec"), namespace)
+            # Run checked-in examples, not external input or a separate code copy.
+            exec(  # nosec B102 # pylint: disable=exec-used
+                compile(block, f"{path}:{index}", "exec"), namespace
+            )
     return namespace
 
 
