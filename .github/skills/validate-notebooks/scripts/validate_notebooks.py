@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 import nbformat
+from nbformat.validator import iter_validate
 
 
 def main(argv=None):
@@ -23,7 +24,10 @@ def main(argv=None):
                 version = notebook.get(field)
                 if not isinstance(version, int) or isinstance(version, bool):
                     raise ValueError(f"{field} must be an integer")
-            nbformat.validate(notebook)
+            # validate() can repair missing cell IDs before checking the schema.
+            validation_error = next(iter_validate(notebook), None)
+            if validation_error is not None:
+                raise validation_error
         except (OSError, ValueError, nbformat.ValidationError) as error:
             message = (
                 error.message

@@ -59,6 +59,7 @@ class NotebookValidationTests(unittest.TestCase):
             "invalid-root": "[]",
             "invalid-cells": json.dumps({**self.notebook, "cells": "not a list"}),
             "invalid-version": json.dumps({**self.notebook, "nbformat_minor": "2"}),
+            "missing-required-id": json.dumps({**self.notebook, "nbformat_minor": 5}),
         }
         for name, contents in cases.items():
             with self.subTest(case=name):
