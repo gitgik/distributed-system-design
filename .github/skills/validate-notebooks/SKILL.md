@@ -20,7 +20,8 @@ description: Validate notebook schemas, execute relevant notebooks with nbval, a
 ## Check structure without executing cells
 
 The helper reads JSON and validates its declared notebook format with `nbformat`.
-It does not rewrite files, upgrade formats, or execute cells. It requires explicit
+It also checks cell ID uniqueness where IDs are required. It does not repair
+inputs, rewrite files, upgrade formats, or execute cells. It requires explicit
 paths and exits nonzero if any input is invalid or unreadable.
 
 From the repository root, for all tracked notebooks in PowerShell:

@@ -54,12 +54,17 @@ class NotebookValidationTests(unittest.TestCase):
         self.assertEqual(path.read_bytes(), original)
 
     def test_rejects_malformed_json_and_invalid_notebook_structure(self):
+        modern = {**self.notebook, "nbformat_minor": 5}
+        without_cells = modern.copy()
+        del without_cells["cells"]
         cases = {
             "malformed-json": "{",
             "invalid-root": "[]",
             "invalid-cells": json.dumps({**self.notebook, "cells": "not a list"}),
             "invalid-version": json.dumps({**self.notebook, "nbformat_minor": "2"}),
-            "missing-required-id": json.dumps({**self.notebook, "nbformat_minor": 5}),
+            "missing-required-id": json.dumps(modern),
+            "missing-cells": json.dumps(without_cells),
+            "null-cells": json.dumps({**modern, "cells": None}),
         }
         for name, contents in cases.items():
             with self.subTest(case=name):
@@ -72,6 +77,21 @@ class NotebookValidationTests(unittest.TestCase):
                 self.assertIn(str(path), errors)
                 self.assertIn("INVALID", errors)
 
+    def test_requires_unique_modern_cell_ids(self):
+        path = self.root / "modern.ipynb"
+        cell = {**self.notebook["cells"][0], "id": "code-cell"}
+        modern = {**self.notebook, "nbformat_minor": 5, "cells": [cell]}
+        path.write_text(json.dumps(modern), encoding="utf-8")
+        result, _, errors = self.run_validator(path)
+        self.assertEqual(result, 0)
+        self.assertEqual(errors, "")
+
+        modern["cells"].append(cell.copy())
+        path.write_text(json.dumps(modern), encoding="utf-8")
+        result, _, errors = self.run_validator(path)
+        self.assertEqual(result, 1)
+        self.assertIn("unique", errors)
+
     def test_reports_unreadable_input(self):
         path = self.root / "missing.ipynb"
 
@@ -82,14 +102,20 @@ class NotebookValidationTests(unittest.TestCase):
 
     def test_checks_remaining_inputs_after_a_failure(self):
         missing = self.root / "missing.ipynb"
+        malformed = self.root / "malformed.ipynb"
+        malformed.write_text(
+            json.dumps({**self.notebook, "nbformat_minor": 5, "cells": None}),
+            encoding="utf-8",
+        )
         valid = self.root / "valid.ipynb"
         valid.write_text(json.dumps(self.notebook), encoding="utf-8")
 
-        result, output, errors = self.run_validator(missing, valid)
+        result, output, errors = self.run_validator(missing, malformed, valid)
 
         self.assertEqual(result, 1)
         self.assertIn(f"VALID {valid}", output)
         self.assertIn(str(missing), errors)
+        self.assertIn(str(malformed), errors)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Check notebook schemas without executing cells or rewriting files."""
+"""Check notebook schemas and cell IDs without execution or rewriting."""
 
 import argparse
 import json
@@ -28,6 +28,10 @@ def main(argv=None):
             validation_error = next(iter_validate(notebook), None)
             if validation_error is not None:
                 raise validation_error
+            if notebook["nbformat"] == 4 and notebook["nbformat_minor"] >= 5:
+                cell_ids = [cell["id"] for cell in notebook["cells"]]
+                if len(cell_ids) != len(set(cell_ids)):
+                    raise ValueError("Cell IDs must be unique within a notebook")
         except (OSError, ValueError, nbformat.ValidationError) as error:
             message = (
                 error.message
