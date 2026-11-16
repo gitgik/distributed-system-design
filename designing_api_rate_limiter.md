@@ -25,12 +25,13 @@ Here are some scenarios to show the importance of Rate limiting our API/Services
 ## 1. Requirements and System Goals
 
 #### Functional requirements
-1. Limit the number of requests an entity can send to an API within a time window.
-2. The user should get an error whenever they cross the defined threshold within a single server or across a set of servers.
+1. Apply a policy to a defined key, such as `(user_id, API operation)`, across all API servers handling that key.
+2. Count admissions, not successful backend responses. An admitted request consumes quota even if the backend later fails; a rejected attempt does not. A retry is a new attempt unless a separate idempotency contract says otherwise.
+3. For an exact rolling policy with limit `L` and window `W`, admit a request at time `t` only if fewer than `L` prior admissions lie in `(t-W, t]`. An admission exactly at `t-W` has expired. Distinct attempts at the same timestamp count separately.
 
 #### Non-Functional requirements
-1. The system should be highly available, always protecting our API service from external attacks.
-2. The rate limiter should NOT introduce substantial latencies affecting the user experience.
+1. Define the failure policy: fail-closed rejects requests when the admission authority is unavailable; fail-open preserves access but relaxes the limit. Independent local counters do not preserve a hard global limit.
+2. Keep the decision path bounded and measure its latency under the expected load, including hot keys. The examples below assume nondecreasing authoritative time; production clock correction, restart, and failover behavior must preserve the chosen accounting contract.
 
 ## 2. Throttling Types
 
@@ -43,19 +44,14 @@ Here are some scenarios to show the importance of Rate limiting our API/Services
 ## 3. Algorithms used for Rate Limiting
 
 #### Fixed Window Algorithm
-Here, the time window is considered from the start of the time-unit to the end of the time-unit.
-For instance, a period will be considered 0-60 sec for a minute regardless of the time frame at which the API request has been made.
+Use aligned, half-open buckets: for a one-second window, `[0,1000)`, `[1000,2000)`, and so on, with time in milliseconds. Each bucket permits at most `L` admissions. This is a different contract from the exact rolling policy: requests on opposite sides of a boundary use different quotas.
 
-The diagram below shows that we will only throttle 'm5' message, if our rate limit is 2 messages per second.
+In the diagram, with `L = 2` per second, the fixed-window policy rejects only `m5`.
 
 ![](images/fixed_rolling_window.svg)
 
 #### Rolling Window Algorithm
-The time window is considered from the fraction of time at which the request is made plus the time window length.
-
-With a rate limit of 2 messages per second, the two messages sent at the 300th millisecond (m1) and 400th millisecond (m2), we'll count them as two messages starting from the 300th of that second to the 300th of the next second (making up one second).
-
-As a result, we will therefore throttle M3, M4 as shown above.
+Look backward from every request, not forward from the first request. With `L = 2` and `W = 1000 ms`, admissions at `300 ms` and `400 ms` cause `m3` and `m4` in the diagram to be rejected. Those admissions expire at `1300 ms` and `1400 ms`, respectively, so later requests can succeed without an aligned reset.
 
 
 
@@ -69,179 +65,117 @@ Once a new request arrives, the Web server first asks the Rate Limiter to decide
 
 ## 5. Basic System Design and Algorithm
 
-Assume for each user, our rate limiter allows 3 requests/sec.
+For a fixed-window limit of `L = 3` admissions per second, store a bucket ID and admission count for each policy key. At time `t` in milliseconds:
 
-For each user, store:
-- a request count (how many requests the user has made)
-- a timestamp when we started counting
+1. Calculate `bucket_id = floor(t / 1000)`.
+2. If the key is absent or its stored bucket differs, use this bucket with count zero.
+3. Reject if `count >= 3`; otherwise increment the count and admit.
 
-We can keep this in a hashtable, where:
-
-```python
-#  Key (userID): Value {count, start_time}
-hashtable = {
-    'userId0': {
-        'count': 3, 'start_time': 1574866492
-    },
-    'userId1': {
-        'count': 1, 'start_time': 1574873716
-    },
-    ...
-}
-```
-
-When a new request comes in, the rate limiter will perform the following steps:
-
-1. If the `userID` does not exist in the hash-table,
-    - insert it,
-    - set `count` to 1 and set `start_time` to current epoch time
-2. Otherwise, find the existing record of the userID, and
-    - if `current_time - start_time >= 1 minute`, reset `start_time` to be current time,
-    - set `count` to 1 and allow the request
-3. If `current_time - start_time <= 1 minute` and
-    - If `count < 3`, increment the count and allow the request.
-    - If `count == 3`, reject the request.
+The read, bucket change, comparison, and increment must be one atomic decision.
 
 #### Problems with this Fixed Window Algorithm
-1. We are resetting the `start_time` at the end of every minute, which means we can potentially allow twice the number of requests per minute.
-
-Imagine if a user sends 3 requests at the last second of a minute, they can immediately send 3 more requests at the very first second of the next minute, resulting in 6 requests in a span of two seconds.
-
-To fix this loophole, we'll use the sliding-window algorithm.
+1. A fixed-window policy permits a boundary burst. Three attempts at `999 ms` followed by three at `1000 ms` are all admitted: six admissions span just one millisecond. Each aligned bucket still satisfies its limit. Use an exact sliding window if that burst violates the requirement.
 
 ![](images/fixed_window_problem.svg)
 
-2. Atomicity: The read and then write process can create a race condition. Imagine, a given user's current count = 2. If two seperate processes served each of these requests and concurrently read the count before either updated it, each process would erroneously think that the user had one more request to hit the rate limit.
+The diagram illustrates the same boundary effect using minute-long buckets; the example above uses seconds.
+
+2. Separate reads and writes race. At count two, two concurrent requests can both see a free slot and both admit, exceeding the limit of three.
 
 ![](images/fixed_window_atomicity.svg)
 
 
 #### Solutions
-We can use a K-V store like Redis to store our key-value and solve the atomicity problem using [Redis lock](https://redis.io/topics/distlock) for the duration of the read-update operation.
-This however, would slow down concurrent requests from the same user and introduce another layer of complexity.
+Use a bounded server-side operation at the authority for the policy key. For example, a [Redis Lua script](https://redis.io/docs/latest/develop/programmability/eval-intro/) can perform the read/check/update without interleaving other commands. Keep all keys for that decision on the same supported shard/slot.
+
+This removes the read/write race, not every failure mode. Scripts block other work while running; bound their work. Atomicity here means no interleaving, not rollback of earlier writes if a script errors. It does not by itself protect acknowledged state across failover or authorize multiple independent primaries to admit for the same key.
 
 &nbsp;
 
 #### How much memory to store all the user data?
-Assume the userID takes 8 bytes, epoch time needs 4 bytes, 2 bytes for count:
-```
-8 + 2 + 4 = 14 bytes
-```
-Let's assume our hash-table has an overhead of 30 bytes for each record. If we need to track 10 million users at any time:
-```
-Total memory =  (14 + 30) bytes * 10 million users = 440,000,000 bytes => 440MB memory.
+For a payload-only estimate, assume eight bytes each for a policy-key identifier, bucket ID, and counter:
+
+```text
+24 bytes/key * 10,000,000 active keys = 240,000,000 bytes = 240 MB
 ```
 
-If we assume that we need a 4-byte number to lock each user's record to solve the atomicity problems
-```
-Total memory =  4 bytes for lock + (14 + 30) bytes * 10 million users = 480,000,000 bytes => 480MB memory.
-```
+All sizes here use decimal units (`kB = 1000 bytes`, `GB = 10^9 bytes`). These are logical payloads, not measured Redis allocations: key encoding, data structures, allocator overhead, expiry metadata, replication, and headroom are additional.
 
-This can fit in a single server. However, we wouldn't want to route all traffic in a single machine because of availability issue => that one server goes down for any reason, our only instance of the rate limiter service goes down with it.
-
-For instance, when rate limiting 1M users at 10 req/sec, this would be about 10 million queries per second for our rate limiter. This would be too much to handle for a single server. Practically, we can use Redis or Memcached in a distributed setup. We'll store all the data in remote Redis servers and all the Rate limiter servers will read/update these servers before serving or throttling any request.
+Memory fit does not establish throughput. One million simultaneously active keys at ten attempts/second require ten million admission decisions/second. Measure the actual operation mix and hot-key concentration before choosing shard count; adding API servers does not split a single key's authoritative decision.
 
 
 
 ## 6. Sliding Window Algorithm
 
-We can maintain a sliding window if we can keep track of each request per user.
+Keep accepted admissions for each policy key in a sorted set. The score is the admission timestamp; the member identifies the distinct attempt. [Redis sorted-set members are unique](https://redis.io/docs/latest/commands/zadd/): using the timestamp as both score and member would collapse simultaneous admissions.
 
-We will store the timestamp of each request in a [Redis Sorted Set](https://redis.io/docs/data-types/sorted-sets/).
+For `L = 3` and `W = 1000 ms`, execute these steps atomically at authoritative time `t`:
 
-```python
-hash_table = {
-    # userID:   { Sorted Set <unix time> }
-    'userID-0': {1574860105, 1574881109, 1574890217 },
-    'userID-1': {1574866488, 1574866493, 1574866499}
-    ...
-}
-```
-Assume our rate limiter allows 3 requests/sec per user.
+1. Remove admissions with timestamp `<= t-W`, leaving exactly `(t-W, t]`.
+2. Reject if the remaining count is `>= 3`. Do not insert a rejected attempt.
+3. Otherwise insert a distinct member with score `t` and admit.
 
-When a new request comes in, the rate limiter will perform the following steps:
+Expire an inactive key no earlier than its last admission plus `W`. Expiry reclaims idle state; pruning and the count check determine eligibility.
 
-1. Remove all timestamps from Sorted Set older than `1 second`.
-2. Count elements in the set. Reject request if the count is greater than our throttling limit (3 for our case).
-3. Insert current time in the sorted set and accept the request.
+The following expected trace includes simultaneous attempts, a rejection, and success exactly when earlier admissions expire:
+
+| Attempt | Time (ms) | Prior admissions in `(t-1000, t]` | Decision |
+|---|---:|---:|---|
+| A | 100 | 0 | Admit |
+| B | 100 | 1 | Admit |
+| C | 100 | 2 | Admit |
+| D | 100 | 3 | Reject |
+| E | 1099 | 3 | Reject |
+| F | 1100 | 0 | Admit |
 
 #### Memory for storing user data?
-Assume UserId takes 8 bytes, each epoch time takes 4 bytes.
+For the memory comparison, use a nominal quota of 500 admissions/hour and ten million active keys. Assume an eight-byte policy-key identifier, eight-byte timestamps, and packed 16-byte distinct members:
 
-Now suppose we need a rate limiting of 500 requests per hour. Assume 20 bytes of overhead for hash-table and 20 bytes for sorted set.
-
-```
-(8 + 4 + 20 bytes sorted set overhead) * 500 + (20 bytes hash-table overhead) = 12KB
-```
-
-If we need to track 10 million users at any time:
-```
-Total memory = 12KB * 10 million users = 11718.75 MB ≈ 120 GB
+```text
+8 + 500 * (8 + 16) = 12,008 bytes/key
+12,008 * 10,000,000 = 120,080,000,000 bytes = 120.08 GB
 ```
 
-For 10M users, sliding window takes a lot of memory compared to fixed window; this won't scale well. We can combine the above two algorithms to optimize our memory usage.
+This is the maximum retained logical payload at that quota, before storage overhead and replicas. It is not a measured Redis footprint or evidence that the design cannot scale. Coarser counters save state by changing the precision of the decision.
 
 
 ## 7. Sliding Window + Counters
-What if we keep track of request counts for each user using multiple fixed time windows.
+Use aligned minute buckets for a conservative approximation to a rolling-hour limit of 500 admissions. An additional limit of ten admissions per aligned minute is a separate product policy, not an assumption about what legitimate users need.
 
-For example, if rate limit is hourly, keep a count for **each minute** and calculate the sum of all counter in the past hour when we receive a new request.
+At time `t` in seconds, retain buckets whose end is strictly greater than `t-3600`. Count the entire oldest overlapping bucket because individual timestamps are unavailable. Before incrementing, reject if the retained sum is `>= 500` or the current minute's count is `>= 10`; otherwise increment the current bucket and admit. Pruning, both comparisons, and incrementing form one atomic decision.
 
-This reduces our memory footprint. Consider a rate-limit at 500 requests/hour, with an additional limit of 10 requests/minute. *This means that when the sum of the counters with timestamps in the past hour `> 500`, the user has exceeded the rate limit.*
+Up to **61 buckets** are needed: the current minute plus the preceding buckets that overlap `(t-3600, t]`. Counting the oldest whole bucket can overcount by up to ten admissions under the separate minute cap, causing false rejections rather than exceeding the exact rolling limit.
 
-In addition, the user can't send more than 10 requests per minute. This would be a reasonable and practical consideration, as none of the real users would send frequent requests. Even if they do, they'll see success with retries since their limits get reset every minute.
+For example, admit ten requests at `t=0` and 490 more across later minutes. At `t=3600`, the ten requests at zero have expired under the exact rolling policy, so a new request is eligible. The bucket approximation still counts their bucket and rejects at 500. At `t=3660`, that bucket is removed; with no intervening admissions, the retained count is 490 and a request is admitted.
 
+Store buckets in a Redis hash. Explicitly delete obsolete bucket fields on active keys. A whole-key [EXPIRE](https://redis.io/docs/latest/commands/expire/) reclaims an idle hash; refreshing it does not prune old fields in a continuously active hash. A TTL of at least `W + one bucket width` after the last admission is sufficient for this conservative retention rule.
 
-We can store our counter in a [Redis Hash](https://redis.io/docs/data-types/hashes/) because it's very efficient in storing <100 keys.
-Which each request, increment a counter in the hash, it also sets the hash to [expire](https://redis.io/commands/ttl) an hour later. We will normalize each time to a minute.
-
-
-```
-Rate limiting allowing 3 requests per minute for User1
-
-[Allow request] 7:00:00 AM  ---- "User1": {1574860100: 1}
-[Allow request] 7:01:05 AM  ---- "User1": { 1574860100: 1, 1574860160: 1}
-[Allow request] 7:01:20 AM  ---- "User1": { 1574860100: 1, 1574860160: 2}
-[Allow request] 7:01:20 AM  ---- "User1": { 1574860100: 1, 1574860160: 3}
-[Reject request] 7:01:45 AM ---- "User1": { 1574860100: 1, 1574860160: 3}
-[Allow request] 7:02:20 AM  ---- "User1": { 1574860160: 3, 1574860220: 1}
-```
+This is not an exact rolling implementation. Use it only when the memory saving justifies the stated false-rejection behavior; retrying next minute does not guarantee success while the hourly quota remains occupied.
 
 #### How much memory to store all user data?
 
-We'll need:
+Using the same payload-only accounting, with eight bytes each for a bucket ID and counter:
+
+```text
+8 + 61 * (8 + 8) = 984 bytes/key
+984 * 10,000,000 = 9,840,000,000 bytes = 9.84 GB
+1 - 984 / 12,008 = about 91.8% less logical payload than the admission log
 ```
 
-UserID = 8 bytes
-Counter = 2 bytes
-Epoch time = 4 bytes
-
-Since we keep a count per minute, at max, we need 60 entries per user
-8 + (4 + 2 + 20 Redis-hash overhead) * 60 entries + 20 Hash-table overhead = 1.6KB
-```
-
-If we need to track 10 million users at any time:
-```
-
-Total memory = 1.6KB * 10 million => 16 GB
-( 92% less memory than the simple sliding window algorithm )
-
-```
+The additional minute cap changes burst behavior, and the bucket approximation changes precision. Neither this calculation nor an entry-count threshold predicts Redis's actual encoding or allocated memory; measure the chosen version and representation.
 
 
 ## 8. Data Sharding and Caching
 We can shard by `UserID` to distribute user data across different partitions.
 
-For fault tolerance and replication we should use Consistent Hashing. Consistent hashing is a very useful strategy for distributed caching system and DHTs. It allows us to distribute data across a cluster in such a way that will minimize reorganization when nodes are added or removed (resizing).
+Consistent hashing can reduce key movement when membership changes; it does not provide replication or recover lost counters. Define how routing, state transfer, and failover preserve one admission authority per key. Moving a key without its unexpired state grants quota again.
 
 &nbsp;
 
 ## Caching
-We can get huge benefits from caching recent active users.
+Independent write-back caches cannot enforce the hard shared limit: two API servers can each spend the same remaining quota before either writes back. Reconciliation cannot undo those admissions.
 
-Our app servers can quickly check if the cache has the desired record before hitting backend servers. Our rate limiter can benefit from the **Write-back cache** by updating all counters and timestamps in cache only. The write to the permanent storage can be done at fixed intervals. This way we can ensure minimum latency added to the user's request by the rate limiter. The reads can always hit the cache first; which will be extremely useful once the user has hit the rate limit and the rate limiter will only be reading data without any updates.
-
-Least Recently Used (LRU) can be a reasonable eviction policy for the our cache.
+Cache policy configuration with an explicit update policy, but keep quota decisions at the authority. Local allowances require disjoint preallocated budgets and a safe ownership lifecycle, which this sketch does not implement. LRU eviction is suitable only for nonauthoritative caches; discarding an unexpired authoritative counter silently restores quota.
 
 
 Sample response:
