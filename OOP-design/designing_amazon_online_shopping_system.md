@@ -40,6 +40,8 @@ Top use cases therefore include:
 
 ### Code
 
+This is a class-design sketch. Cart updates and order logs are implemented; checkout, payment, registration, and other methods marked `pass` or `NotImplementedError` remain incomplete.
+
 First we define the enums, datatypes and constants that'll be used by the rest of the classes:
 
 
@@ -80,10 +82,11 @@ class Account:
         # "private" attributes
         self._username = username
         self._password = password
+        self._name = name
         self._email = email
         self._phone = phone
         self._shipping_address = shipping_address
-        self._status = status.ACTIVE
+        self._status = status
         self._credit_cards = []
         self._bank_accounts = []
 
@@ -103,7 +106,7 @@ class Customer(ABC):
         self._order = order
 
     def get_shopping_cart(self):
-        return self.cart
+        return self._cart
 
     def add_item_to_cart(self, item):
         raise NotImplementedError
@@ -118,7 +121,8 @@ class Guest(Customer):
 
 
 class Member(Customer):
-    def __init__(self, account:Account):
+    def __init__(self, account:Account, cart=None, order=None):
+        super().__init__(cart, order)
         self._account = account
 
     def place_order(self, order):
@@ -147,9 +151,10 @@ class Product:
     def __init__(self, product_id, name, description, price, category, available_item_count):
         self._product_id = product_id
         self._name = name
+        self._description = description
         self._price = price
         self._category = category
-        self._available_item_count = 0
+        self._available_item_count = available_item_count
 
     def update_price(self, new_price):
         self._price = new_price
@@ -200,7 +205,9 @@ class ShoppingCart:
         self._items.remove(item)
 
     def update_item_quantity(self, item, quantity):
-        pass
+        if item not in self._items:
+            raise ValueError("Item is not in the shopping cart")
+        item.update_quantity(quantity)
 
 ```
 
@@ -250,7 +257,7 @@ class Order:
         pass
 
     def add_order_log(self, order_log):
-        pass
+        self._order_log.append(order_log)
 ```
 
 #### Shipment and Notification
@@ -269,11 +276,12 @@ class ShipmentLog:
 
 
 class Shipment:
-    def __init__(self, shipment_id, shipment_method, eta=None, shipment_logs=[]):
+    def __init__(self, shipment_id, shipment_method, eta=None, shipment_logs=None):
         self._shipment_id = shipment_id
+        self._shipment_method = shipment_method
         self._shipment_date = datetime.date.today()
         self._eta = eta
-        self._shipment_logs = shipment_logs
+        self._shipment_logs = [] if shipment_logs is None else shipment_logs
 
 
 class Notification(ABC):
