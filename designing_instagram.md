@@ -18,6 +18,7 @@ We plan to design a simpler version of Instagram, where a user can share photos 
 - The service needs to be highly available
 - The acceptable latency is 200ms for News Feed generation
 - The system should be highly reliable; any uploaded photo/video should never be lost.
+- The system needs to support offline mode maybe data efficiency or synchronization which is important because the user can interact with the platform offline which could lead to conflict policies or eviction
 
 ## 2. Capacity Estimation and Constraints
 
