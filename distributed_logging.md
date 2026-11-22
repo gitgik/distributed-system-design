@@ -41,9 +41,9 @@ The following severity levels are commonly used in logging:
 
 
 ### Non-functional requirements
-- **Low latency:** logging is a resource-intensive operation that's significantly slower than CPU operations. To ensure low latency, the logging system should be designed so that logging does not block or delay a service's main application process.
+- **Low latency:** bound logging overhead and queue sizes. Best-effort diagnostics can favor nonblocking calls; logs requiring durable acceptance may need additional latency, backpressure, or explicit rejection.
 - **Scalability:** Our logging system must be scalable. It should efficiently handle increasing log volumes over time and support a growing number of concurrent users.
-- **Availability:** The logging system should be highly available to ensure data is consistently logged without interruption.
+- **Availability:** specify which failures can prevent durable acceptance and whether the application then continues, drops diagnostic records, or fails the operation. Finite resources cannot provide lossless, nonblocking logging through an indefinitely unavailable sink.
 
 ## Components to use
 We will use the following components:
@@ -89,7 +89,8 @@ In a server environment, logging occurs across various services and application,
 
 #### Server Level
 - **Multiple Applications:** A server hosts multiple apps, such as App1, App2, etc. Each running various microservices with user authentication, fetching the cart, storage etc in an e-commerce context.
-- **Logging Structure:** each service within the application generates logs identified by an ID conprising application ID, service ID, and timestamp, ensuring unique identification and event causality determination.
+- **Event identity:** application ID, service ID, and timestamp are not a unique key: two instances can emit at the same timestamp. Generate an `event_id` once and retain it across delivery retries. One design uses an assigned unique producer-incarnation ID plus a sequence number; never reuse an incarnation ID after resetting its sequence.
+- **Time and causality:** record event time separately from the collector's observed time. Clock skew can place a causal receive before its send when sorting timestamps. Trace and span IDs connect logs to instrumented operations; parent relationships in trace data explain those operations' causal structure, not every event in the system. The [OpenTelemetry log model](https://opentelemetry.io/docs/specs/otel/logs/data-model/) distinguishes timestamps and trace/span identifiers.
 
 #### Logging Process
 Each service will push logs into the log accumulator service.
@@ -98,8 +99,9 @@ The service will store the logs logically and push the logs to a pub-sub system.
 We use the pub-sub system to handle scalability challenge by efficiently managing and distributing a large volume of logs across the system.
 
 #### Ensuring Low Latency and Performance
-- **Asynchronous Logging:** Logs are sent asynchronously via low-priority threads to avoid impacting the performance of critical processes. This also ensure continuous availability of services without any disruptions caused by logging activities.
-- **Data Loss Awareness:** Logging large volumes of messsages can lead to potential data loss. To balance user-perceived latency with data peristence, log services often use RAM and save data asynchronously. To minimize data loss, we will add more log accumulators to handle increasing concurrent users.
+- **Asynchronous logging:** background work moves I/O off the request path, but still consumes CPU, memory, network, and storage. Use a bounded queue and define what happens when it fills: drop with observable counts, block, or reject according to the log's purpose. Low-priority workers can fall behind; asynchronous does not mean zero impact.
+- **Data loss awareness:** records accepted only into RAM can be lost when that process crashes. More accumulators can relieve load but do not protect an individual volatile queue. A process-persistent spool is not protection against loss of its host or disk.
+- **Acceptance boundary:** distinguish an in-memory enqueue, a persisted spool, a replicated broker acknowledgment, a completed archive write, and search visibility. If a caller needs durable acceptance, acknowledge only after the chosen persistence boundary under its stated failure assumptions. This adds persistence cost and requires retry/backpressure behavior; a successful enqueue alone is not that acknowledgment.
 
 #### Log Retention
 Logs also have an expiration date. We can delete regular logs after a few days or months. Comliance logs are usually stored for up to five years. If depends on the requirements of the application.
@@ -114,7 +116,12 @@ Implementing multiple pub-sub instance within each data center enhances scalabil
 
 ![](images/distributed_logging_datacenter_level.png)
 
-Now, data in the pub-sub system is temporary and get deleted after a few days before being moved to archival storage.
-However, while the data is still present in the pub-sub system, we can utilize it using the following services:
+Archive records before their broker copies become eligible for deletion. For each partition, durably write and verify a contiguous prefix before advancing its archival checkpoint past that prefix. A crash after the sink write but before the checkpoint causes replay, so use idempotent writes or durable deduplication keyed by stable batch/event identifiers.
+
+A consumer checkpoint does not prevent normal time- or size-based broker deletion; [Kafka's topic retention policies](https://kafka.apache.org/41/configuration/topic-configs/) are one example. Either coordinate retirement with verified archive coverage or provision and monitor retention time and byte capacity covering the declared outage and recovery period. Once retention overtakes unarchived data, an offset cannot recover it.
+
+For an illustrative decimal-byte budget, assume zero initial lag, 10 MB/s admitted input, and a 30-minute archive outage. The backlog is `10 * 1800 = 18,000 MB = 18 GB`. Recovery at 15 MB/s drains it at only `15 - 10 = 5 MB/s`, taking another `3600 seconds`. A conservative retention budget exceeds the combined 90 minutes, plus headroom. At equal input and archive rates, existing lag does not shrink. Below the input rate, archive throughput cannot prevent growing lag and eventual exhaustion of finite retention.
+
+Archival completion is separate from index and alert freshness. Monitor archive lag, retention headroom, ingest-to-search delay, and ingest-to-alert delay. While records remain in the broker, independent consumers can provide:
 - **Alerts Service:** This service identifies alerts and errors and notifies the appropriate stakeholders if a critical error is detected, or sends a message to a monitoring tool, ensuring timely awareness of important alerts. The service will also monitor logs for suspicious activities or security incidents, triggering alerts or automated responses to mitigate threats.
 - **Analytics service:** This service analyzes trends and patterns in the logged data to provide insights into system perf, user behavior, or operational metrics.
